@@ -1,16 +1,17 @@
 # 04. ERD (Entity Relationship Diagram)
 
-본 문서는 [03-domain.md](./03-domain.md)에서 정의한 도메인 모델을 실제 MySQL 테이블 설계로 구체화한다.
+본 문서는 [03-domain.md](./03-domain.md)에서 정의한 도메인 모델을 실제 PostgreSQL 테이블 설계로 구체화한다.
 
 ## 1. 공통 설계 원칙
 
 | 항목 | 결정 | 근거 |
 |---|---|---|
-| PK 타입 | `BIGINT AUTO_INCREMENT` | 성능과 단순성 면에서 UUID보다 유리. 외부 노출 우려가 크지 않은 MVP 수준에서는 적합하다. |
+| PK 타입 | `BIGINT GENERATED ALWAYS AS IDENTITY` | 성능과 단순성 면에서 UUID보다 유리. JPA `@GeneratedValue(IDENTITY)` 전략과 자동 연동된다. |
 | Audit 컬럼 | 모든 테이블에 `created_at`, `updated_at` 공통 적용 | JPA `@MappedSuperclass` 기반 `BaseEntity`로 공통 처리 |
-| Soft Delete | `deleted_at DATETIME NULL` 컬럼 방식 | 삭제 시각 보존 가능, JPA `@SQLRestriction`으로 자동 필터링 |
-| 문자셋 | `utf8mb4` | 이모지 포함 한글 처리 |
-| 시간대 | `DATETIME` + 애플리케이션 레벨 UTC 관리 | DB에 `TIMESTAMP`(2038 문제)보다 안전 |
+| Soft Delete | `deleted_at TIMESTAMP NULL` 컬럼 방식 | 삭제 시각 보존 가능, JPA `@SQLRestriction`으로 자동 필터링 |
+| 문자셋 | UTF-8 (PostgreSQL 기본값) | 별도 설정 불필요. 이모지 포함 한글 처리 |
+| 시간대 | `TIMESTAMP` + 애플리케이션 레벨 UTC 관리 | PostgreSQL `TIMESTAMP`는 MySQL `DATETIME`에 대응하며 2038 문제 없음 |
+| ENUM 타입 | `VARCHAR` + 애플리케이션 레벨 검증 | PostgreSQL 네이티브 ENUM은 DDL 변경이 번거롭다. JPA `@Enumerated(EnumType.STRING)`이 VARCHAR로 자동 매핑되므로 VARCHAR 사용 |
 
 ---
 
@@ -23,12 +24,12 @@ erDiagram
         VARCHAR email UK
         VARCHAR password
         VARCHAR name
-        ENUM role
+        VARCHAR role
         BIGINT cafe_id FK
-        ENUM status
-        DATETIME created_at
-        DATETIME updated_at
-        DATETIME deleted_at
+        VARCHAR status
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+        TIMESTAMP deleted_at
     }
 
     cafes {
@@ -38,9 +39,9 @@ erDiagram
         VARCHAR address
         VARCHAR phone
         VARCHAR business_hours
-        DATETIME created_at
-        DATETIME updated_at
-        DATETIME deleted_at
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+        TIMESTAMP deleted_at
     }
 
     menus {
@@ -49,9 +50,9 @@ erDiagram
         VARCHAR name
         INT price
         TEXT description
-        ENUM status
-        DATETIME created_at
-        DATETIME updated_at
+        VARCHAR status
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
     inventories {
@@ -60,26 +61,26 @@ erDiagram
         INT quantity
         INT threshold_quantity
         INT version
-        DATETIME updated_at
+        TIMESTAMP updated_at
     }
 
     inventory_transactions {
         BIGINT id PK
         BIGINT inventory_id FK
-        ENUM change_type
+        VARCHAR change_type
         INT quantity_changed
-        ENUM reason
-        DATETIME created_at
+        VARCHAR reason
+        TIMESTAMP created_at
     }
 
     orders {
         BIGINT id PK
         BIGINT cafe_id FK
         BIGINT member_id FK
-        ENUM status
+        VARCHAR status
         INT total_amount
-        DATETIME created_at
-        DATETIME updated_at
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
     order_items {
@@ -98,8 +99,8 @@ erDiagram
         DATE summary_date
         INT total_sales
         INT total_order_count
-        DATETIME created_at
-        DATETIME updated_at
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
     operation_logs {
@@ -108,7 +109,7 @@ erDiagram
         VARCHAR action
         VARCHAR target_type
         BIGINT target_id
-        DATETIME created_at
+        TIMESTAMP created_at
     }
 
     members ||--o{ cafes : "owns (owner_id)"
@@ -131,16 +132,16 @@ erDiagram
 
 | 컬럼명 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| id | BIGINT | PK, AUTO_INCREMENT | |
+| id | BIGINT | PK, GENERATED ALWAYS AS IDENTITY | |
 | email | VARCHAR(100) | UNIQUE, NOT NULL | 로그인 식별자 |
 | password | VARCHAR(255) | NOT NULL | BCrypt 해시 값 |
 | name | VARCHAR(50) | NOT NULL | 사용자 이름 |
-| role | ENUM('OWNER','STAFF','ADMIN') | NOT NULL | 권한 역할 |
+| role | VARCHAR(20) | NOT NULL | 권한 역할 (`OWNER`, `STAFF`, `ADMIN`) |
 | cafe_id | BIGINT | FK(cafes.id), NULL | STAFF 소속 카페 (OWNER/ADMIN은 NULL) |
-| status | ENUM('ACTIVE','INACTIVE') | NOT NULL, DEFAULT 'ACTIVE' | 계정 활성 상태 |
-| created_at | DATETIME | NOT NULL | |
-| updated_at | DATETIME | NOT NULL | |
-| deleted_at | DATETIME | NULL | Soft Delete |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'ACTIVE' | 계정 활성 상태 (`ACTIVE`, `INACTIVE`) |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
+| deleted_at | TIMESTAMP | NULL | Soft Delete |
 
 **인덱스**
 - `UK_members_email` UNIQUE (email)
@@ -152,15 +153,15 @@ erDiagram
 
 | 컬럼명 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| id | BIGINT | PK, AUTO_INCREMENT | |
+| id | BIGINT | PK, GENERATED ALWAYS AS IDENTITY | |
 | owner_id | BIGINT | FK(members.id), NOT NULL | 소유자 |
 | name | VARCHAR(100) | NOT NULL | 카페 이름 |
 | address | VARCHAR(255) | NOT NULL | 주소 |
 | phone | VARCHAR(20) | NULL | 연락처 |
 | business_hours | VARCHAR(100) | NULL | 영업시간 (예: "09:00-21:00") |
-| created_at | DATETIME | NOT NULL | |
-| updated_at | DATETIME | NOT NULL | |
-| deleted_at | DATETIME | NULL | Soft Delete |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
+| deleted_at | TIMESTAMP | NULL | Soft Delete |
 
 **인덱스**
 - `IDX_cafes_owner_id` (owner_id) — 사장 본인 카페 목록 조회
@@ -171,14 +172,14 @@ erDiagram
 
 | 컬럼명 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| id | BIGINT | PK, AUTO_INCREMENT | |
+| id | BIGINT | PK, GENERATED ALWAYS AS IDENTITY | |
 | cafe_id | BIGINT | FK(cafes.id), NOT NULL | 소속 카페 |
 | name | VARCHAR(100) | NOT NULL | 메뉴 이름 |
 | price | INT | NOT NULL | 가격 (원 단위, 0 초과) |
 | description | TEXT | NULL | 설명 |
-| status | ENUM('ON_SALE','SOLD_OUT','DELETED') | NOT NULL, DEFAULT 'ON_SALE' | 판매 상태 |
-| created_at | DATETIME | NOT NULL | |
-| updated_at | DATETIME | NOT NULL | |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'ON_SALE' | 판매 상태 (`ON_SALE`, `SOLD_OUT`, `DELETED`) |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
 
 > Soft Delete를 `status = 'DELETED'`로 처리하므로 `deleted_at` 컬럼 불필요.
 > 단, 삭제 시각이 필요하다고 판단되면 `deleted_at` 추가를 검토한다.
@@ -192,12 +193,12 @@ erDiagram
 
 | 컬럼명 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| id | BIGINT | PK, AUTO_INCREMENT | |
+| id | BIGINT | PK, GENERATED ALWAYS AS IDENTITY | |
 | menu_id | BIGINT | FK(menus.id), UNIQUE, NOT NULL | 연결 메뉴 (1:1) |
 | quantity | INT | NOT NULL, DEFAULT 0 | 현재 재고 수량 (0 이상) |
 | threshold_quantity | INT | NOT NULL, DEFAULT 5 | 부족 알림 기준 수량 |
 | version | INT | NOT NULL, DEFAULT 0 | 낙관적 락용 버전 컬럼 |
-| updated_at | DATETIME | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
 
 > `version` 컬럼은 JPA `@Version`과 연동하여 동시 차감 시 충돌을 감지한다.
 > `created_at`은 Menu 생성 시점과 동일하므로 별도 저장하지 않는다.
@@ -211,12 +212,12 @@ erDiagram
 
 | 컬럼명 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| id | BIGINT | PK, AUTO_INCREMENT | |
+| id | BIGINT | PK, GENERATED ALWAYS AS IDENTITY | |
 | inventory_id | BIGINT | FK(inventories.id), NOT NULL | 소속 재고 |
-| change_type | ENUM('IN','OUT') | NOT NULL | 입고/차감 구분 |
+| change_type | VARCHAR(10) | NOT NULL | 입고/차감 구분 (`IN`, `OUT`) |
 | quantity_changed | INT | NOT NULL | 변동 수량 (양수) |
-| reason | ENUM('ORDER','MANUAL_RESTOCK') | NOT NULL | 변동 사유 |
-| created_at | DATETIME | NOT NULL | 발생 시각 |
+| reason | VARCHAR(30) | NOT NULL | 변동 사유 (`ORDER`, `MANUAL_RESTOCK`) |
+| created_at | TIMESTAMP | NOT NULL | 발생 시각 |
 
 **인덱스**
 - `IDX_inv_tx_inventory_id` (inventory_id) — 재고별 이력 조회
@@ -228,13 +229,13 @@ erDiagram
 
 | 컬럼명 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| id | BIGINT | PK, AUTO_INCREMENT | |
+| id | BIGINT | PK, GENERATED ALWAYS AS IDENTITY | |
 | cafe_id | BIGINT | FK(cafes.id), NOT NULL | 소속 카페 |
 | member_id | BIGINT | FK(members.id), NOT NULL | 처리 직원/사장 |
-| status | ENUM('RECEIVED','IN_PROGRESS','COMPLETED','CANCELED') | NOT NULL, DEFAULT 'RECEIVED' | 주문 상태 |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'RECEIVED' | 주문 상태 (`RECEIVED`, `IN_PROGRESS`, `COMPLETED`, `CANCELED`) |
 | total_amount | INT | NOT NULL | 총 주문 금액 |
-| created_at | DATETIME | NOT NULL | |
-| updated_at | DATETIME | NOT NULL | |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
 
 **인덱스**
 - `IDX_orders_cafe_id` (cafe_id) — 카페별 주문 목록 조회
@@ -247,7 +248,7 @@ erDiagram
 
 | 컬럼명 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| id | BIGINT | PK, AUTO_INCREMENT | |
+| id | BIGINT | PK, GENERATED ALWAYS AS IDENTITY | |
 | order_id | BIGINT | FK(orders.id), NOT NULL | 소속 주문 |
 | menu_id | BIGINT | FK(menus.id), NOT NULL | 참조 메뉴 |
 | menu_name_snapshot | VARCHAR(100) | NOT NULL | 주문 시점 메뉴 이름 스냅샷 |
@@ -268,13 +269,13 @@ erDiagram
 
 | 컬럼명 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| id | BIGINT | PK, AUTO_INCREMENT | |
+| id | BIGINT | PK, GENERATED ALWAYS AS IDENTITY | |
 | cafe_id | BIGINT | FK(cafes.id), NOT NULL | 소속 카페 |
 | summary_date | DATE | NOT NULL | 집계 기준 날짜 |
 | total_sales | INT | NOT NULL | 해당일 총 매출 |
 | total_order_count | INT | NOT NULL | 해당일 총 주문 수 |
-| created_at | DATETIME | NOT NULL | |
-| updated_at | DATETIME | NOT NULL | |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
 
 **인덱스**
 - `UK_sales_summaries_cafe_date` UNIQUE (cafe_id, summary_date) — 카페별 날짜 중복 방지
@@ -286,12 +287,12 @@ erDiagram
 
 | 컬럼명 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| id | BIGINT | PK, AUTO_INCREMENT | |
+| id | BIGINT | PK, GENERATED ALWAYS AS IDENTITY | |
 | actor_id | BIGINT | FK(members.id), NOT NULL | 행위자 |
 | action | VARCHAR(100) | NOT NULL | 수행 작업 (예: ORDER_STATUS_CHANGE) |
 | target_type | VARCHAR(50) | NULL | 대상 리소스 타입 (예: ORDER) |
 | target_id | BIGINT | NULL | 대상 리소스 ID |
-| created_at | DATETIME | NOT NULL | 발생 시각 |
+| created_at | TIMESTAMP | NOT NULL | 발생 시각 |
 
 **인덱스**
 - `IDX_op_logs_actor_id` (actor_id)

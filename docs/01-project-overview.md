@@ -87,7 +87,7 @@ CafePilot은 위 문제를 **하나의 통합 백엔드 플랫폼 + AI 데이터
 | Framework | Spring Boot 3 |
 | 인증/인가 | Spring Security, JWT |
 | 데이터 접근 | Spring Data JPA |
-| 데이터베이스 | MySQL |
+| 데이터베이스 | PostgreSQL |
 | 캐시 | Redis |
 | 메시징 | RabbitMQ |
 | 빌드 도구 | Gradle |
@@ -113,6 +113,6 @@ CafePilot은 두 가지 목표를 동시에 가진다.
 - [ ] AI 기능이 실제 DB 데이터를 근거로 응답한다.
 - [ ] 이벤트 기반 처리(RabbitMQ), 캐싱(Redis), 스케줄러가 실제로 동작한다.
 - [ ] 단위/통합 테스트가 핵심 비즈니스 로직을 검증한다.
-- [ ] Docker Compose로 전체 시스템(App, MySQL, Redis, RabbitMQ)이 한 번에 기동된다.
+- [ ] Docker Compose로 전체 시스템(App, PostgreSQL, Redis, RabbitMQ)이 한 번에 기동된다.
 - [ ] CI/CD 파이프라인이 구성되어 있다.
 - [ ] 설계 문서(`docs/`)가 요구사항 → 도메인 → ERD → API → 아키텍처 순으로 일관되게 정리되어 있다.

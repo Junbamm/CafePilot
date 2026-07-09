@@ -23,7 +23,7 @@
 │  └─────────────┘  └──────┬───────┘  └────────┬────────┘  │
 │                          │                   │            │
 │                    ┌─────▼─────┐      ┌──────▼──────┐    │
-│                    │  RabbitMQ │      │    MySQL     │    │
+│                    │  RabbitMQ │      │  PostgreSQL  │    │
 │                    │ Publisher │      │   (JPA)      │    │
 │                    └─────┬─────┘      └─────────────┘    │
 │                          │                                │
@@ -198,7 +198,7 @@ src/main/java/com/cafepilot/
 
 > Refresh Token을 Redis에 저장하는 이유: 로그아웃이나 계정 탈취 감지 시 서버에서 토큰을 강제 무효화하기 위함이다. 완전한 Stateless JWT라면 무효화가 불가능하다.
 
-### 4.3 Spring Data JPA + MySQL
+### 4.3 Spring Data JPA + PostgreSQL
 
 **왜 JPA인가?**
 
@@ -206,11 +206,13 @@ src/main/java/com/cafepilot/
 - 기본 CRUD는 JpaRepository로 처리하고, 복잡한 조회는 JPQL/QueryDSL을 사용한다.
 - 다만 JPA가 적합하지 않은 대량 배치 처리(매출 집계)는 직접 JPQL 또는 네이티브 쿼리를 사용한다.
 
-**왜 MySQL인가?**
+**왜 PostgreSQL인가?**
 
-- 국내 스타트업/중소기업 환경에서 가장 널리 쓰이는 RDBMS로 실무 친숙도가 높다.
-- ACID 트랜잭션, 인덱스, 외래키 등 관계형 모델의 장점을 활용한다.
+- MySQL 대비 타입 안정성, 고급 쿼리(윈도우 함수, CTE), JSON 지원이 뛰어나다.
+- AWS RDS, Supabase 등 클라우드 환경에서 PostgreSQL 채택이 증가하는 추세다.
+- ACID 트랜잭션, 인덱스, 외래키 등 관계형 모델의 장점을 모두 갖추고 있다.
 - 카페 운영 데이터는 정형화된 관계(카페-메뉴-주문)를 가지므로 NoSQL보다 RDBMS가 적합하다.
+- ENUM 타입은 네이티브 지원 대신 `VARCHAR` + JPA `@Enumerated(EnumType.STRING)`으로 처리하여 DDL 변경 없이 값 추가가 가능하다.
 
 ### 4.4 Redis
 
@@ -432,7 +434,7 @@ ErrorDetail {
 ```yaml
 services:
   app:          # Spring Boot Application
-  mysql:        # MySQL 8
+  postgres:     # PostgreSQL 16
   redis:        # Redis 7
   rabbitmq:     # RabbitMQ 3 (Management UI 포함)
 ```
@@ -463,3 +465,7 @@ services:
 **Q. 왜 모든 삭제를 Soft Delete로 처리했는가?**
 
 > 메뉴를 물리 삭제하면 과거 주문의 `menu_id`가 가리키는 레코드가 사라져 참조 무결성이 깨집니다. 또한 매출 통계에서 삭제된 메뉴의 이력도 조회 가능해야 합니다. 메뉴는 `status = DELETED`, 회원/카페는 `deleted_at` 컬럼 방식으로 Soft Delete를 적용하고, JPA `@SQLRestriction`으로 삭제된 데이터를 자동 제외합니다.
+
+**Q. MySQL이 아닌 PostgreSQL을 선택한 이유는?**
+
+> PostgreSQL은 MySQL 대비 타입 안정성, 윈도우 함수, CTE, JSON 지원 등 고급 쿼리 기능이 풍부합니다. 매출 집계처럼 복잡한 분석 쿼리가 필요한 이 프로젝트에 더 적합하다고 판단했습니다. 또한 AWS RDS, Supabase 등 최근 클라우드 환경에서 PostgreSQL 채택이 늘어나는 추세이며, ENUM 타입을 `VARCHAR` + 애플리케이션 레벨 검증으로 처리하면 DDL 변경 없이 값을 추가할 수 있어 유지보수성도 높습니다.

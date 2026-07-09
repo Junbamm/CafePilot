@@ -41,8 +41,8 @@ dependencies {
     // RabbitMQ
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
 
-    // MySQL
-    runtimeOnly 'com.mysql:mysql-connector-j'
+    // PostgreSQL
+    runtimeOnly 'org.postgresql:postgresql'
 
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
