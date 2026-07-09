@@ -2,6 +2,7 @@ package com.cafepilot.domain.auth.controller;
 
 import com.cafepilot.domain.auth.dto.LoginRequest;
 import com.cafepilot.domain.auth.dto.RegisterRequest;
+import com.cafepilot.domain.auth.dto.ReissueRequest;
 import com.cafepilot.domain.auth.dto.TokenResponse;
 import com.cafepilot.domain.auth.service.AuthService;
 import com.cafepilot.global.response.ApiResponse;
@@ -37,8 +38,8 @@ public class AuthController {
 
     @Operation(summary = "토큰 재발급")
     @PostMapping("/reissue")
-    public ApiResponse<TokenResponse> reissue(@RequestBody String refreshToken) {
-        return ApiResponse.success(authService.reissue(refreshToken));
+    public ApiResponse<TokenResponse> reissue(@Valid @RequestBody ReissueRequest request) {
+        return ApiResponse.success(authService.reissue(request.refreshToken()));
     }
 
     @Operation(summary = "로그아웃")

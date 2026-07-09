@@ -8,7 +8,6 @@ import com.cafepilot.domain.member.entity.Member;
 import com.cafepilot.domain.member.repository.MemberRepository;
 import com.cafepilot.global.exception.ErrorCode;
 import com.cafepilot.global.security.jwt.JwtProvider;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,7 +18,6 @@ import java.time.Duration;
 
 @Service
 @Transactional
-@RequiredArgsConstructor
 public class AuthService {
 
     private static final String REFRESH_TOKEN_PREFIX = "RT:";
@@ -28,9 +26,21 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final StringRedisTemplate redisTemplate;
+    private final long refreshTokenExpireMs;
 
-    @Value("${jwt.refresh-token-expire-ms}")
-    private long refreshTokenExpireMs;
+    public AuthService(
+            MemberRepository memberRepository,
+            PasswordEncoder passwordEncoder,
+            JwtProvider jwtProvider,
+            StringRedisTemplate redisTemplate,
+            @Value("${jwt.refresh-token-expire-ms}") long refreshTokenExpireMs
+    ) {
+        this.memberRepository = memberRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtProvider = jwtProvider;
+        this.redisTemplate = redisTemplate;
+        this.refreshTokenExpireMs = refreshTokenExpireMs;
+    }
 
     public void register(RegisterRequest request) {
         if (memberRepository.existsByEmail(request.email())) {
