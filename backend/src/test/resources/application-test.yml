@@ -1,0 +1,35 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: false
+    open-in-view: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+
+jwt:
+  secret: test-secret-key-must-be-at-least-32-bytes-long
+  access-token-expire-ms: 3600000
+  refresh-token-expire-ms: 604800000
+
+ai:
+  openai:
+    api-key: test-key
+    model: gpt-4o-mini
+    base-url: https://api.openai.com/v1
