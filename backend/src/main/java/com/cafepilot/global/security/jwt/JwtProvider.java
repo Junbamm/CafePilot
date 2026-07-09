@@ -6,6 +6,7 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -32,15 +33,18 @@ public class JwtProvider {
         this.refreshTokenExpireMs = refreshTokenExpireMs;
     }
 
-    public String generateAccessToken(Member member) {
+    @NonNull
+    public String generateAccessToken(@NonNull Member member) {
         return buildToken(member, accessTokenExpireMs);
     }
 
-    public String generateRefreshToken(Member member) {
+    @NonNull
+    public String generateRefreshToken(@NonNull Member member) {
         return buildToken(member, refreshTokenExpireMs);
     }
 
-    private String buildToken(Member member, long expireMs) {
+    @NonNull
+    private String buildToken(@NonNull Member member, long expireMs) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(String.valueOf(member.getId()))
@@ -52,7 +56,8 @@ public class JwtProvider {
                 .compact();
     }
 
-    public Claims parseClaims(String token) {
+    @NonNull
+    public Claims parseClaims(@NonNull String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)
                 .build()
@@ -60,7 +65,7 @@ public class JwtProvider {
                 .getPayload();
     }
 
-    public boolean validateToken(String token) {
+    public boolean validateToken(@NonNull String token) {
         try {
             parseClaims(token);
             return true;
@@ -69,11 +74,12 @@ public class JwtProvider {
         }
     }
 
-    public Long getMemberId(String token) {
+    public long getMemberId(@NonNull String token) {
         return Long.parseLong(parseClaims(token).getSubject());
     }
 
-    public String getRole(String token) {
+    @NonNull
+    public String getRole(@NonNull String token) {
         return parseClaims(token).get(CLAIM_ROLE, String.class);
     }
 }

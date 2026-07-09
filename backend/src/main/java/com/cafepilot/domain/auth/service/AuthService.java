@@ -26,7 +26,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final StringRedisTemplate redisTemplate;
-    private final long refreshTokenExpireMs;
+    private final Duration refreshTokenTtl;
 
     public AuthService(
             MemberRepository memberRepository,
@@ -39,7 +39,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
         this.redisTemplate = redisTemplate;
-        this.refreshTokenExpireMs = refreshTokenExpireMs;
+        this.refreshTokenTtl = Duration.ofMillis(refreshTokenExpireMs);
     }
 
     public void register(RegisterRequest request) {
@@ -65,12 +65,9 @@ public class AuthService {
 
         String accessToken = jwtProvider.generateAccessToken(member);
         String refreshToken = jwtProvider.generateRefreshToken(member);
+        String redisKey = REFRESH_TOKEN_PREFIX + member.getId();
 
-        redisTemplate.opsForValue().set(
-                REFRESH_TOKEN_PREFIX + member.getId(),
-                refreshToken,
-                Duration.ofMillis(refreshTokenExpireMs)
-        );
+        redisTemplate.opsForValue().set(redisKey, refreshToken, refreshTokenTtl);
 
         return TokenResponse.of(accessToken, refreshToken);
     }
@@ -80,8 +77,9 @@ public class AuthService {
             throw new AuthException(ErrorCode.AUTH_TOKEN_INVALID);
         }
 
-        Long memberId = jwtProvider.getMemberId(refreshToken);
-        String storedToken = redisTemplate.opsForValue().get(REFRESH_TOKEN_PREFIX + memberId);
+        long memberId = jwtProvider.getMemberId(refreshToken);
+        String redisKey = REFRESH_TOKEN_PREFIX + memberId;
+        String storedToken = redisTemplate.opsForValue().get(redisKey);
 
         if (!refreshToken.equals(storedToken)) {
             throw new AuthException(ErrorCode.AUTH_TOKEN_INVALID);
@@ -93,16 +91,12 @@ public class AuthService {
         String newAccessToken = jwtProvider.generateAccessToken(member);
         String newRefreshToken = jwtProvider.generateRefreshToken(member);
 
-        redisTemplate.opsForValue().set(
-                REFRESH_TOKEN_PREFIX + memberId,
-                newRefreshToken,
-                Duration.ofMillis(refreshTokenExpireMs)
-        );
+        redisTemplate.opsForValue().set(redisKey, newRefreshToken, refreshTokenTtl);
 
         return TokenResponse.of(newAccessToken, newRefreshToken);
     }
 
-    public void logout(Long memberId) {
+    public void logout(long memberId) {
         redisTemplate.delete(REFRESH_TOKEN_PREFIX + memberId);
     }
 }
